@@ -32,8 +32,10 @@ from datetime import datetime
 import pandas as pd
 
 ZENODO_RECORD_ID = "8042347"
-INPUT_FILE = "./LSPR23/ls23pr_flows/ls23pr_v1.csv"
-OUTPUT_FILE = "./LSPR23/ls23pr_flows/Reformatted_LSPR23.csv"
+# ls23pr_flows.zip contains a single CSV (ls23pr_v1.csv) at its root, so
+# extractall(".") drops it directly into this directory.
+INPUT_FILE = "./ls23pr_v1.csv"
+OUTPUT_FILE = "./Reformatted_LSPR23.csv"
 
 
 # ============================================================

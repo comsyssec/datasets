@@ -44,10 +44,6 @@ mirai:
   path: mirai/
   tags: [iot, botnet]
 
-EPIC_Attack_Datasets:
-  path: EPIC_Attack_Datasets/
-  tags: [apt]
-
 lspr23:
   path: lspr23/
   tags: [general-purpose, anomaly]

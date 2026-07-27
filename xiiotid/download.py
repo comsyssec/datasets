@@ -4,7 +4,7 @@ import shutil
 import pandas as pd
 
 KAGGLE_DATASET = "munaalhawawreh/xiiotid-iiot-intrusion-dataset"
-REQUIRED_COLUMNS = ["class", "class2", "class3"]
+REQUIRED_COLUMNS = ["class1", "class2", "class3"]
 INPUT_FILENAME = "XIIoTID.csv"
 OUTPUT_FILENAME = "Reformatted_XIIoTID.csv"
 
@@ -49,8 +49,8 @@ def process(input_filepath, output_filepath):
         rename_mapping["class2"] = "attack_name"
     if "class3" in df.columns:
         rename_mapping["class3"] = "attack_flag"
-    if "class" in df.columns:
-        rename_mapping["class"] = "attack_step"
+    if "class1" in df.columns:
+        rename_mapping["class1"] = "attack_step"
     df.rename(columns=rename_mapping, inplace=True)
 
     if "attack_flag" in df.columns:
@@ -60,17 +60,25 @@ def process(input_filepath, output_filepath):
         )
 
     if "attack_step" in df.columns:
+        # Keys are the actual class1 values (stripped + lowercased).
         kill_chain_mapping = {
             "normal": 0,
-            "reconnaissance": 1, "os_scan": 1, "vul_scan": 1, "coap_scan": 1,
-            "modbus_reading": 1, "fuzzing": 1, "mqtt_subscription": 1,
-            "weapon": 2, "weaponization": 2, "insider_malcious": 2,
-            "delivery": 3, "fake_notification": 3,
-            "exploitation": 4, "bruteforce": 4, "dictionary": 4,
-            "data_injection": 4, "mitm": 4,
-            "installation": 5, "shell": 5,
-            "c&c": 6, "command & control": 6, "tcp_relay": 6,
-            "exfiltration": 7, "actions on objectives": 7, "rdos": 7, "crypto_ransom": 7,
+            # Reconnaissance
+            "generic_scanning": 1, "scanning_vulnerability": 1,
+            "discovering_resources": 1, "fuzzing": 1,
+            "modbus_register_reading": 1, "mqtt_cloud_broker_subscription": 1,
+            # Weaponization
+            "insider_malcious": 2,
+            # Delivery
+            "fake_notification": 3,
+            # Exploitation
+            "false_data_injection": 4, "bruteforce": 4, "dictionary": 4, "mitm": 4,
+            # Installation
+            "reverse_shell": 5,
+            # C&C
+            "c&c": 6, "tcp relay": 6,
+            # Actions on Objectives
+            "exfiltration": 7, "rdos": 7, "crypto-ransomware": 7,
         }
         step_series = df["attack_step"].astype(str).str.strip().str.lower()
         unmapped = step_series[~step_series.isin(kill_chain_mapping)].unique()

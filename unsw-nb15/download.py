@@ -54,6 +54,9 @@ def download():
     dst = os.path.join(os.getcwd(), INPUT_FILENAME)
     df_train = pd.read_csv(train_src, low_memory=False)
     df_test = pd.read_csv(test_src, low_memory=False)
+    # Tag rows so the original train/test split can be preserved downstream.
+    df_train["split"] = "train"
+    df_test["split"] = "test"
     df = pd.concat([df_train, df_test], ignore_index=True)
     df.to_csv(dst, index=False)
     print(f"[INFO] Saved as: {dst}  ({len(df):,} rows)")
@@ -81,8 +84,10 @@ def process(input_filepath, output_filepath):
     df["attack_step"] = name_series.map(KILL_CHAIN).fillna(-1).astype(int)
 
     target_columns = ["attack_name", "attack_flag", "attack_step"]
-    feature_columns = [c for c in df.columns if c not in target_columns]
-    df = df[feature_columns + target_columns]
+    # Keep the split provenance column last, out of the feature set.
+    provenance_columns = [c for c in ["split"] if c in df.columns]
+    feature_columns = [c for c in df.columns if c not in target_columns + provenance_columns]
+    df = df[feature_columns + target_columns + provenance_columns]
 
     print(f"[INFO] Saving: {output_filepath}")
     df.to_csv(output_filepath, index=False)

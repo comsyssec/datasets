@@ -117,12 +117,15 @@ def process(output_filepath):
         raise RuntimeError("No day CSV files found. Run download() first.")
 
     print(f"[INFO] Processing {len(day_files)} file(s): {day_files}")
+    # ~34 GB output: write to .partial and rename only on completion, so an
+    # interrupted run never leaves a truncated file that looks finished.
+    tmp_filepath = output_filepath + ".partial"
     first_write = True
     total_rows = 0
     unmapped_all = set()
 
-    for fname in day_files:
-        print(f"[INFO] Reading: {fname}")
+    for fidx, fname in enumerate(day_files, start=1):
+        print(f"[INFO] Reading [{fidx}/{len(day_files)}]: {fname}")
         file_rows = 0
         for chunk in pd.read_csv(fname, chunksize=200_000, low_memory=False):
             # Find label column
@@ -147,13 +150,16 @@ def process(output_filepath):
             feature_columns = [c for c in chunk.columns if c not in target_columns]
             chunk = chunk[feature_columns + target_columns]
 
-            chunk.to_csv(output_filepath, index=False,
+            chunk.to_csv(tmp_filepath, index=False,
                          mode="w" if first_write else "a", header=first_write)
             first_write = False
             total_rows += len(chunk)
             file_rows += len(chunk)
+            print(f"[INFO]   {fname}: {file_rows:,} rows  (total {total_rows:,})")
 
         print(f"[INFO]   → {file_rows:,} rows")
+
+    os.replace(tmp_filepath, output_filepath)
 
     if unmapped_all:
         print(f"[WARNING] Unmapped labels: {sorted(unmapped_all)}")
@@ -203,18 +209,3 @@ if __name__ == "__main__":
         process(OUTPUT_FILENAME)
     else:
         print(f"[INFO] {OUTPUT_FILENAME} already exists, skipping processing.")
-        from collections import Counter
-        step_counts = Counter()
-        unmapped_names = Counter()
-        for chunk in pd.read_csv(OUTPUT_FILENAME, usecols=["attack_step", "attack_name"],
-                                 chunksize=500_000, low_memory=False):
-            step_counts.update(chunk["attack_step"].value_counts().to_dict())
-            bad = chunk[chunk["attack_step"] == -1]["attack_name"]
-            unmapped_names.update(bad.value_counts().to_dict())
-        total = sum(step_counts.values())
-        print(f"[INFO] Rows: {total:,}")
-        print("[INFO] Kill-chain step distribution:")
-        for step, cnt in sorted(step_counts.items()):
-            print(f"  Step {step:2d}: {cnt:,}")
-        if unmapped_names:
-            print(f"[WARNING] Unmapped: {dict(unmapped_names)}")

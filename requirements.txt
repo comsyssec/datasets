@@ -1,2 +1,4 @@
 kagglehub
 argparse
+pandas
+polars
