@@ -24,7 +24,7 @@ Cyber Kill Chain Mapping (IDS category codes 1.0–15.0):
 
 import json
 import os
-import subprocess
+import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime
@@ -72,19 +72,65 @@ def get_zenodo_zip_url():
     return download_url, key
 
 
-def download_with_wget(url, output_path):
-    if os.path.exists(output_path):
-        print(f"[INFO] Partial file detected. Resuming download: {output_path}")
-    else:
-        print(f"[INFO] Starting download: {url}")
-    try:
-        subprocess.run(["wget", "-c", "-O", output_path, url], check=True)
-    except FileNotFoundError:
-        raise RuntimeError(
-            "[ERROR] wget not found. Install it or download manually:\n"
-            f"  URL: {url}\n"
-            f"  Save as: {output_path}"
-        )
+def download_file(url, output_path, max_retries=5):
+    """Resumable HTTP download using only the standard library.
+
+    Zenodo serves these files with byte-range support, so an interrupted
+    transfer continues from the existing file size instead of restarting.
+    """
+    for attempt in range(1, max_retries + 1):
+        existing = os.path.getsize(output_path) if os.path.exists(output_path) else 0
+
+        # Zenodo rejects a spoofed browser User-Agent with 403, so send the
+        # default urllib one.
+        req = urllib.request.Request(url)
+        if existing:
+            req.add_header("Range", f"bytes={existing}-")
+            print(f"[INFO] Resuming at {existing / 1024 ** 2:,.0f} MB: {output_path}")
+        else:
+            print(f"[INFO] Starting download: {url}")
+
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                if existing and resp.status != 206:
+                    print("[WARNING] Server ignored the resume request. Restarting from 0.")
+                    existing = 0
+                total = int(resp.headers.get("Content-Length", 0)) + existing
+                downloaded = existing
+                with open(output_path, "ab" if existing else "wb") as f:
+                    while True:
+                        buf = resp.read(1024 * 1024)
+                        if not buf:
+                            break
+                        f.write(buf)
+                        downloaded += len(buf)
+                        if total:
+                            pct = downloaded / total * 100
+                            print(f"\r[INFO] {downloaded / 1024 ** 2:,.0f} / "
+                                  f"{total / 1024 ** 2:,.0f} MB ({pct:5.1f}%)", end="", flush=True)
+            print()
+            if total and downloaded < total:
+                print(f"[WARNING] Stream ended early at {downloaded:,}/{total:,} bytes. "
+                      f"Retry {attempt}/{max_retries} ...")
+                continue
+        except urllib.error.HTTPError as e:
+            if e.code == 416:  # requested range beyond EOF -> already complete
+                print("[INFO] File is already fully downloaded.")
+                return
+            raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            print(f"\n[WARNING] Transfer interrupted ({e}). "
+                  f"Retry {attempt}/{max_retries} ...")
+            continue
+
+        print(f"[INFO] Download complete: {output_path}")
+        return
+
+    raise RuntimeError(
+        f"[ERROR] Download failed after {max_retries} attempts.\n"
+        f"  URL: {url}\n"
+        f"  Save it manually as: {output_path}"
+    )
 
 
 def extract_zip(archive_path):
@@ -287,7 +333,7 @@ def process_lspr23_dataset(input_filepath, output_filepath, chunk_size=100000):
 if __name__ == "__main__":
     if not os.path.exists(INPUT_FILE):
         url, archive_name = get_zenodo_zip_url()
-        download_with_wget(url, archive_name)
+        download_file(url, archive_name)
         extract_zip(archive_name)
     else:
         print(f"[INFO] Dataset already present at {INPUT_FILE}. Skipping download.")
