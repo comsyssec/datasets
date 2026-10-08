@@ -266,7 +266,7 @@ Source: https://intrusion-detection.distrinet-research.be/CNS2022/
 | Python 3.8+ | All datasets | — |
 | Python packages | All datasets | `pip install -r requirements.txt` |
 | Kaggle API key | All Kaggle-based datasets | `~/.kaggle/kaggle.json` ([guide](https://www.kaggle.com/docs/api)) |
-| `wget` | LSPR23, CIC-IDS improved | Linux/Mac: built-in |
+| `wget` | CIC-IDS improved | Linux/Mac: built-in |
 
 ---
 
@@ -349,7 +349,7 @@ cd cicids2018-imp && python3 download.py
 Pre-processed `training-flow.csv` and `test-flow.csv` are included directly in the repository. No `download.py` exists — the source is proprietary PCAP captures.
 
 ### LSPR23
-Downloads from Zenodo automatically. Requires `wget`. Processes 9.8 GB CSV in chunks.
+Downloads from Zenodo automatically using the Python standard library only (no `wget` needed, so it runs on Windows too). The transfer resumes from the existing file size via HTTP range requests and retries up to 5 times. Processes 9.8 GB CSV in chunks.
 
 ### Kitsune
 Two Kaggle uploads exist — use the correct one:
